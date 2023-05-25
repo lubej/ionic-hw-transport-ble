@@ -1,7 +1,7 @@
 import Transport from "@ledgerhq/hw-transport";
 import {BleClient} from "@capacitor-community/bluetooth-le";
-import {sendAPDU} from "@ledgerhq/devices/lib/ble/sendAPDU";
-import {receiveAPDU} from "@ledgerhq/devices/lib/ble/receiveAPDU";
+import {sendAPDU} from "@ledgerhq/devices/ble/sendAPDU";
+import {receiveAPDU} from "@ledgerhq/devices/ble/receiveAPDU";
 import {
   BluetoothInfos,
   getBluetoothServiceUuids,
