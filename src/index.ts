@@ -260,7 +260,7 @@ export default class BleTransport extends Transport {
       } catch (e) {
         log("ble-error", "exchange got " + String(e));
       }
-    })
+    }) as Promise<Buffer>
   }
 
   /**
