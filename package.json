@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint --ext ts ./src",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +21,9 @@
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^3.0.0",
-    "@ledgerhq/hw-transport": "^6.28.3"
+    "@ledgerhq/hw-transport": "^6.28.3",
+    "@types/jest": "^29.5.3",
+    "jest": "^29.6.2",
+    "ts-jest": "^29.1.1"
   }
 }
