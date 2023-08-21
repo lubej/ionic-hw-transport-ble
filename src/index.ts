@@ -9,7 +9,7 @@ import {
 } from "@ledgerhq/devices";
 import type {DeviceModel} from "@ledgerhq/devices";
 import {log} from "@ledgerhq/logs";
-import {Observable, defer, merge, from} from "rxjs";
+import {Observable, defer, merge, from, Subject} from "rxjs";
 import {
   share,
   ignoreElements,
@@ -35,7 +35,7 @@ export const monitorCharacteristic = (
 
   return new Observable<Buffer>(subscriber => {
     BleClient.startNotifications(deviceId, service, characteristic, rawData => {
-      const value = Buffer.from(new Uint8Array(rawData.buffer));
+      const value = Buffer.from(rawData.buffer, rawData.byteOffset, rawData.byteLength);
       subscriber.next(value);
     })
   });
@@ -67,9 +67,13 @@ const clearDisconnectTimeout = (deviceId: string): void => {
 const open = async (scanResult: ScanResult): Promise<BleTransport> => {
   log(TAG, `Tries to open device: ${scanResult}`);
 
+  const closedSubscription = new Subject<void>()
+
   try {
     log(TAG, `connectToDevice(${scanResult})`);
-    await BleTransport.connect(scanResult.device.deviceId)
+    await BleTransport.connect(scanResult.device.deviceId, () => {
+      closedSubscription.next()
+    })
   } catch (error) {
     log(TAG, `error code ${String(error)}`);
 
@@ -143,6 +147,12 @@ const open = async (scanResult: ScanResult): Promise<BleTransport> => {
     bluetoothInfos
   );
 
+  closedSubscription.pipe(
+    tap(() => {
+      transport.isConnected = false
+    })
+  ).subscribe();
+
   transportsCache[transport.id] = transport;
 
   await transport.inferMTU();
@@ -158,8 +168,8 @@ export default class BleTransport extends Transport {
   static isSupported = (): Promise<boolean> =>
     Promise.resolve(typeof BleClient === "object");
 
-  static connect = (deviceId: string): Promise<void> => {
-    return bleInstance().connect(deviceId);
+  static connect = (deviceId: string, onDisconnect: (deviceId: string) => void): Promise<void> => {
+    return bleInstance().connect(deviceId, onDisconnect);
   }
 
   static list = (stopScanTimeout = BleTransport.disconnectTimeoutMs): Promise<ScanResult[]> => {
@@ -314,14 +324,14 @@ export default class BleTransport extends Transport {
     log("ble-frame", "=> " + buffer.toString("hex"));
     if (this.writeCmdCharacteristic) {
       try {
-        const data = new DataView(buffer.buffer)
+        const data = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
         return bleInstance().writeWithoutResponse(this.device.device.deviceId, this.bluetoothInfos.serviceUuid, this.bluetoothInfos.writeCmdUuid, data)
       } catch (e) {
         throw new DisconnectedDeviceDuringOperation(String(e));
       }
     } else {
       try {
-        const data = new DataView(buffer.buffer)
+        const data = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
         bleInstance().write(this.device.device.deviceId, this.bluetoothInfos.serviceUuid, this.bluetoothInfos.writeUuid, data)
       } catch (e) {
         throw new DisconnectedDeviceDuringOperation(String(e));
@@ -352,6 +362,7 @@ export default class BleTransport extends Transport {
       if (this.isConnected) {
         try {
           BleTransport.disconnect(this.id)
+          this.isConnected = false
         } finally {
           resolve();
         }
