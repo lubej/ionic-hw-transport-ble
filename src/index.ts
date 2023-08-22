@@ -137,7 +137,7 @@ const open = async (scanResult: ScanResult): Promise<BleTransport> => {
   const notifyObservable = monitorCharacteristic(scanResult.device.deviceId, serviceUuid, notifyUuid).pipe(
     share()
   );
-  notifyObservable.subscribe();
+  const notifySubscription = notifyObservable.subscribe();
   const transport = new BleTransport(
     scanResult,
     writeUuid,
@@ -148,8 +148,15 @@ const open = async (scanResult: ScanResult): Promise<BleTransport> => {
   );
 
   closedSubscription.pipe(
+    first(),
     tap(() => {
-      transport.isConnected = false
+      transport.isConnected = false;
+      notifySubscription.unsubscribe();
+
+      clearDisconnectTimeout(transport.id);
+      delete transportsCache[transport.id];
+      log(TAG, `BleTransport(${transport.id}) disconnected`);
+      transport.emit("disconnect");
     })
   ).subscribe();
 
@@ -253,6 +260,10 @@ export default class BleTransport extends Transport {
    * @returns {Promise<Buffer>} A promise that resolves with the response data from the device.
    */
   exchange = async (apdu: Buffer): Promise<Buffer> => {
+    if (!this.isConnected) {
+      throw new DisconnectedDeviceDuringOperation("Device not connected");
+    }
+
     return this.exchangeAtomicImpl(async () => {
       try {
         const msgIn = apdu.toString("hex");
@@ -357,12 +368,11 @@ export default class BleTransport extends Transport {
 
     log(TAG, "Queuing a disconnect");
 
-    this.disconnectTimeout = global.setTimeout(() => {
+    this.disconnectTimeout = global.setTimeout(async () => {
       log(TAG, `Triggering a disconnect from ${this.id}`);
       if (this.isConnected) {
         try {
-          BleTransport.disconnect(this.id)
-          this.isConnected = false
+          await BleTransport.disconnect(this.id)
         } finally {
           resolve();
         }

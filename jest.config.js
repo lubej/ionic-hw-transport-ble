@@ -10,8 +10,7 @@ const config = {
   testPathIgnorePatterns: [
     '/node_modules/',
   ],
-  testTimeout: 60000,
-  target: 'es2020'
+  testTimeout: 60000
 }
 
 module.exports = config
