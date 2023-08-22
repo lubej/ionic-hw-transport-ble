@@ -11,7 +11,7 @@ export declare const monitorCharacteristic: (deviceId: string, service: string, 
 export default class BleTransport extends Transport {
     static disconnectTimeoutMs: number;
     static isSupported: () => Promise<boolean>;
-    static connect: (deviceId: string) => Promise<void>;
+    static connect: (deviceId: string, onDisconnect: (deviceId: string) => void) => Promise<void>;
     static list: (stopScanTimeout?: number) => Promise<ScanResult[]>;
     static open(scanResult: ScanResult): Promise<BleTransport>;
     /**
